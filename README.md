@@ -1,1 +1,1 @@
-SSFusion
+SSFusion：A state space based cross-modal fusion
