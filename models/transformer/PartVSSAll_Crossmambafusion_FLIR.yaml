@@ -1,0 +1,76 @@
+# parameters
+nc: 3  # number of classes
+depth_multiple: 1.00  # model depth multiple
+width_multiple: 1.00  # layer channel multiple
+
+# anchors
+anchors:
+  - [10,13, 16,30, 33,23]  # P3/8
+  - [30,61, 62,45, 59,119]  # P4/16
+  - [116,90, 156,198, 373,326]  # P5/32
+
+# YOLOv5 backbone
+backbone:
+  # [from, number, module, args]
+  # Two Stream
+#  [[-1, 1, Patch_Embedding, [3, 96]],        # 0
+#   [-1, 1, VSS_Layer, [96,96,2,0,2]],      # 1
+#   [-1, 1, VSS_Layer, [96,192,2,2,4,True]],    # 2
+#   [-1, 1, VSS_Layer, [192,384,2,4,6,True]],    # 3
+#   [-1, 1, VSS_Layer, [384,768,2,6,8,True]],   # 4
+#
+#   [ -4, 1, Patch_Embedding, [ 3, 96 ] ],        # 5
+#   [ -1, 1, VSS_Layer, [ 96,96,2,0,2 ] ],      # 6
+#   [ -1, 1, VSS_Layer, [ 96,192,2,2,4 ,True] ],    # 7
+#   [ -1, 1, VSS_Layer, [ 192,384,2,4,6 ,True] ],    # 8
+#   [ -1, 1, VSS_Layer, [ 384,768,2,6,8 ,True] ],   # 9
+  [ [ -1, 1, Patch_Embedding, [ 3, 64 ] ],  # 0-P1/2
+    [ -1, 1, VSS_Layer, [ 64,128,1,0,1 ,True ] ],  # 1-P2/4
+    [ -1, 3, C3, [ 128 ] ],
+    [ -1, 1, VSS_Layer, [ 128,256,1,1,2,True ] ],   # 3-P3/8
+    [ -1, 6, C3, [ 256 ] ],
+    [ -1, 1, VSS_Layer, [ 256,512,1,2,3,True ] ],  # 5-P4/16
+    [ -1, 9, C3, [ 512 ] ],
+    [ -1, 1, VSS_Layer, [ 512,1024,1,3,4,True ] ],  # 7-P5/32
+    [ -1, 3, C3, [ 1024 ] ],
+    [ -1, 1, SPPF, [ 1024, 5 ] ],  # 9
+
+    [ -4, 1, Patch_Embedding, [ 3, 64 ] ],  # 10-P1/2
+    [ -1, 1, VSS_Layer, [ 64,128,1,0,1 ,True ] ],  # 11-P2/4
+    [ -1, 3, C3, [ 128 ] ],
+    [ -1, 1, VSS_Layer, [ 128,256,1,1,2,True ] ],   # 13-P3/8
+    [ -1, 6, C3, [ 256 ] ],
+    [ -1, 1, VSS_Layer, [ 256,512,1,2,3,True ] ],  # 15-P4/16
+    [ -1, 9, C3, [ 512 ] ],
+    [ -1, 1, VSS_Layer, [ 512,1024,1,3,4,True ] ],  # 17-P5/32
+    [ -1, 3, C3, [ 1024 ] ],
+    [ -1, 1, SPPF, [ 1024, 5 ] ],  # 19
+    ######### Fusion Block #############
+   [[4,14], 1, CrossMambaFusionBlock, [512]],    # 20 two stream fuse
+   [[6,16], 1, CrossMambaFusionBlock, [1024]],   # 21 two stream fuse
+   [[9,19], 1, CrossMambaFusionBlock, [2048]],   # 22 two stream fuse
+  ]
+
+
+# YOLOv5 head
+head:
+  [ [ -1, 1, VSS_Layer, [ 1024,512, 1,0, 1 ] ],          # 23
+    [ -1, 1, nn.Upsample, [ None, 2, 'nearest' ] ],  # 24
+    [ [ -1,21 ], 1, Concat, [ 1 ] ],           # 25 cat backbone P4
+    [ -1, 3, C3, [ 512, False ] ],           # 26
+
+    [ -1, 1, VSS_Layer, [ 512,256, 1,1, 2 ] ],          # 27
+    [ -1, 1, nn.Upsample, [ None, 2, 'nearest' ] ],  # 28
+    [ [ -1,20 ], 1, Concat, [ 1 ] ],           # 29 cat backbone P3
+    [ -1, 3, C3, [ 256, False ] ],           # 30 (P3/8-small)
+
+    [ -1, 1, VSS_Layer, [ 256,256, 1,2, 3,True ] ],          # 31
+    [ [ -1,27 ], 1, Concat, [ 1 ] ],           # 32 cat head P4
+    [ -1, 3, C3, [ 512, False ] ],           # 33 (P4/16-medium)
+
+    [ -1, 1, VSS_Layer, [ 512,512, 1,3, 4,True ] ],          # 34
+    [ [ -1,23 ], 1, Concat, [ 1 ] ],           # 35 cat head P5
+    [ -1, 3, C3, [ 1024, False ] ],          # 36 (P5/32-large)
+
+    [ [ 30, 33, 36 ], 1, Detect, [ nc, anchors ] ],    # Detect(P3, P4, P5)
+  ]
