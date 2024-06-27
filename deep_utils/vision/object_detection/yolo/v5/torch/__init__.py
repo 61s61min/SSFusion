@@ -1,1 +1,0 @@
-from .yolo_v5_torch_object_detection import YOLOV5TorchObjectDetector
